@@ -16,8 +16,9 @@ static const struct gpio_dt_spec vbatt_power = GPIO_DT_SPEC_GET(VBATT_NODE, powe
 #define OUTPUT_OHMS DT_PROP(VBATT_NODE, output_ohms)
 #define DELAY_US DT_PROP(VBATT_NODE, power_on_sample_delay_us)
 
-/* Variables locales del módulo */
+//usa una cola de trabajo, por lo que no bloquea y no satura nada.
 static struct k_work_delayable battery_work;
+
 static struct app_state *m_app_state;
 
 /* La función que se ejecuta cada 5 minutos en segundo plano */

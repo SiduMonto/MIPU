@@ -28,13 +28,13 @@
         };
     };
 
-    vbatt {
+    vbatt: vbatt {
 	compatible = "voltage-divider";
 	io-channels = <&adc 7>;
 	output-ohms = <510000>; //r2 (que es 510k)
 	full-ohms = <1510000>; //r1 (que es 1M) + r2
 	power-gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
-        power-on-sample-delay-us = <13>;
+        power-on-sample-delay-us = <16>;
     };
 };
 
@@ -77,6 +77,10 @@
 	serial-vcom-inversion;
 	serial-vcom-interval = <1000>;
     };
+};
+
+&rtc2 {
+    status = "okay";
 };
 
 &adc {

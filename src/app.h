@@ -1,6 +1,7 @@
 #ifndef APP_H
 #define APP_H
 
+#include <zephyr/spinlock.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
@@ -11,6 +12,7 @@ enum app_screen {
     APP_SCREEN_HOME = 0,
     APP_SCREEN_MENU,
     APP_SCREEN_SETTINGS,
+    APP_SCREEN_ABOUT,
 };
 
 enum app_button_event {
@@ -34,6 +36,7 @@ struct app_clock_state {
 };
 
 struct app_state {
+    struct k_spinlock lock;
     enum app_screen screen;
     int menu_index;
     bool bt_ready;

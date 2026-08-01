@@ -1,6 +1,6 @@
 #include "app.h"
 
-#include <date_time.h>
+//#include <date_time.h>
 #include <bluetooth/services/cts_client.h>
 #include <stdio.h>
 #include <string.h>
@@ -89,13 +89,17 @@ void app_set_time_from_cts(struct app_state *state,
 
     int64_t frac_ms = ((int64_t)current_time->exact_time_256.fractions256 * 1000) / 256;
 
+    //bloqueo porque son 64 bits, podria ser interrumpido a mitad de variable
+    k_spinlock_key_t key = k_spin_lock(&state->lock);
     state->clock.base_epoch_ms = (unix_s * 1000) + frac_ms;
     state->clock.base_uptime_ms = k_uptime_get();
     state->clock.valid = true;
+    k_spin_unlock(&state->lock, key);
+
     state->sync_in_progress = false;
     state->last_sync_ok = true;
 
-    (void)date_time_set(&tm);
+    //(void)date_time_set(&tm);
 }
 
 bool app_get_current_tm(const struct app_state *state, struct tm *out)
@@ -104,7 +108,11 @@ bool app_get_current_tm(const struct app_state *state, struct tm *out)
         return false;
     }
 
+    //bloqueo porque son 64 bits, podria ser interrumpido a mitad de variable
+    k_spinlock_key_t key = k_spin_lock((struct k_spinlock *)&state->lock);
     int64_t now_ms = state->clock.base_epoch_ms + (k_uptime_get() - state->clock.base_uptime_ms);
+    k_spin_unlock((struct k_spinlock *)&state->lock, key);
+
     time_t now_s = (time_t)(now_ms / 1000);
 
     return gmtime_r(&now_s, out) != NULL;

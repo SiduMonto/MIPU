@@ -22,6 +22,7 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 //pa la uart creo
 USBD_DEVICE_DEFINE(my_usbd, DEVICE_DT_GET(DT_NODELABEL(zephyr_udc0)), 0x1234, 0x5678);
+USBD_CONFIGURATION_DEFINE(my_config, USB_SCD_SELF_POWERED, 100, NULL);
 USBD_DESC_LANG_DEFINE(lang_desc);
 USBD_DESC_MANUFACTURER_DEFINE(mfg_desc, "Seeed");
 USBD_DESC_PRODUCT_DEFINE(product_desc, "XIAO BLE Console");
@@ -146,6 +147,23 @@ static struct bt_conn_auth_info_cb auth_info_callbacks = {
 };
 
 
+//CALLBACK de seguridad cambiada
+static void security_changed(struct bt_conn *conn, bt_security_t level, enum bt_security_err err)
+{
+    if (!err && level >= BT_SECURITY_L2) {
+        LOG_INF("Security set (level %d). Discovering CTS...", level);
+        
+        //Arranco el discovery manager de nordic para buscar servicios
+        int discover_err = bt_gatt_dm_start(conn, BT_UUID_CTS, &discovery_cb, NULL);
+        if (discover_err) {
+            LOG_ERR("Error initializing GATT DM: %d", discover_err);
+        }
+    } else {
+        LOG_WRN("Failed to increase security: %d", err);
+    }
+}
+
+
 static void connected(struct bt_conn *conn, uint8_t err)
 {
     if (err) {
@@ -165,14 +183,6 @@ static void connected(struct bt_conn *conn, uint8_t err)
     if (sec_err) {
         LOG_WRN("Security petition failed (err %d)", sec_err);
     }
-    
-    //Arranco el discovery manager de nordic para buscar servicios
-    int discover_err = bt_gatt_dm_start(conn, BT_UUID_CTS, &discovery_cb, NULL);
-    if (discover_err) {
-        LOG_ERR("Error starting GATT DM: %d", discover_err);
-    } else {
-        LOG_INF("Searching for the time service on the device...");
-    }
 }
 
 static void disconnected(struct bt_conn *conn, uint8_t reason)
@@ -188,7 +198,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
     app_set_bt_ready(&app, false);
 
     //volvemos a anunciarmos
-    int err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
+    int err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err) {
         LOG_ERR("Error restarting advertising (err %d)", err);
     } else {
@@ -200,6 +210,7 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 BT_CONN_CB_DEFINE(conn_callbacks) = {
     .connected = connected,
     .disconnected = disconnected,
+    .security_changed = security_changed,
 };
 
 // SIMULACION DE BOTONES CON TECLADO
@@ -261,9 +272,14 @@ static int usb_console_start(void)
     err = usbd_add_descriptor(&my_usbd, &lang_desc);
     err |= usbd_add_descriptor(&my_usbd, &mfg_desc);
     err |= usbd_add_descriptor(&my_usbd, &product_desc);
+
+    err |= usbd_add_configuration(&my_usbd, USBD_SPEED_FS, &my_config);
+    err |= usbd_register_class(&my_usbd, "cdc_acm_0", USBD_SPEED_FS, 1);    
+
     if (err) {
         return err;
     }
+    
 
     err = usbd_init(&my_usbd);
     if (err) {
@@ -300,7 +316,7 @@ static int bluetooth_start(void)
     bt_cts_client_init(&cts_client);
 
     //advertising
-    err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
+    err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), NULL, 0);
     if (err) {
         LOG_ERR("Error starting advertising (err %d)", err);
         return err;
