@@ -7,4 +7,5 @@ target_sources(app PRIVATE
     src/main.c
     src/app.c
     src/battery.c
+    src/inversion.c
 )

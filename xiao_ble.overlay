@@ -71,11 +71,13 @@
         spi-max-frequency = <2000000>;
         width = <144>;
         height = <168>;
-	spi-cs-high;
-        // extcomin-gpios = <&gpio0 29 GPIO_ACTIVE_HIGH>; // Pin to toggle VCOM to prevent DC bias
+        spi-cs-high;
+
+        //para inversion por hardware (pero despertando cpu para invertir) y software
+        // extcomin-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>; // Pin to toggle VCOM to prevent DC bias
         // extcomin-frequency = <60>;
-	serial-vcom-inversion;
-	serial-vcom-interval = <1000>;
+        // serial-vcom-inversion;
+        // serial-vcom-interval = <1000>;
     };
 };
 

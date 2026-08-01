@@ -14,6 +14,7 @@
 
 #include "app.h"
 #include "battery.h"
+#include "inversion.h"
 
 #define DEVICE_NAME "MIPU Watch"
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME) - 1)
@@ -345,6 +346,9 @@ int main(void)
     }
 
     LOG_INF("USB init succesful.\n");
+    
+    //Aqui inicializo la pantalla
+    init_hardware_vcom();
 
     err = bluetooth_start();
     if (err) {
@@ -352,6 +356,7 @@ int main(void)
     }
 
     battery_init(&app);
+    
 
     //a futuro esto seria un sleep forever y gestionaria por interrupcion.
     while (1) {
