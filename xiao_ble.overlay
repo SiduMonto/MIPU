@@ -1,0 +1,95 @@
+/ {
+
+    chosen {
+        zephyr,display = &ls0xx;
+	    zephyr,console = &cdc_acm_uart0;
+        zephyr,shell-uart = &cdc_acm_uart0;
+    };
+
+    aliases {
+        sw0 = &button0;
+        sw1 = &button1;
+        sw2 = &button2;
+    };
+
+    buttons {
+        compatible = "gpio-keys";
+        button0: button_0 {
+            gpios = <&gpio0 2 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Up Button";
+        };
+        button1: button_1 {
+            gpios = <&gpio0 3 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Select Button";
+        };
+        button2: button_2 {
+            gpios = <&gpio1 11 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            label = "Down Button";
+        };
+    };
+
+    vbatt {
+	compatible = "voltage-divider";
+	io-channels = <&adc 7>;
+	output-ohms = <510000>; //r2 (que es 510k)
+	full-ohms = <1510000>; //r1 (que es 1M) + r2
+	power-gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+        power-on-sample-delay-us = <13>;
+    };
+};
+
+&pinctrl {
+    spi2_default: spi2_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 15)>,
+                    <NRF_PSEL(SPIM_MOSI, 1, 13)>;
+        };
+    };
+
+    spi2_sleep: spi2_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 15)>,
+                    <NRF_PSEL(SPIM_MOSI, 1, 13)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi2 {
+    status = "okay";
+
+    //para que no  gasten cuando sleep
+    pinctrl-0 = <&spi2_default>;
+    pinctrl-1 = <&spi2_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    cs-gpios = <&gpio0 28 GPIO_ACTIVE_HIGH>; //chip select
+
+    ls0xx: ls0xx@0 {
+        compatible = "sharp,ls0xx";
+        reg = <0>;
+        spi-max-frequency = <2000000>;
+        width = <144>;
+        height = <168>;
+	spi-cs-high;
+        // extcomin-gpios = <&gpio0 29 GPIO_ACTIVE_HIGH>; // Pin to toggle VCOM to prevent DC bias
+        // extcomin-frequency = <60>;
+	serial-vcom-inversion;
+	serial-vcom-interval = <1000>;
+    };
+};
+
+&adc {
+    status = "okay";
+};
+
+&zephyr_udc0 {
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+    };
+};
+
+&uart0 {
+    status = "disabled";
+};
+
