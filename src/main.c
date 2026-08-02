@@ -338,7 +338,8 @@ int main(void)
     
     app_init(&app);
 
-    //inicializar y habilitar el stack USB
+    //inicializar y habilitar el stack USB 
+    //TODO: quizas poner alante y hacer algo para que se espere todo a que se haya inicializado
     if (!device_is_ready(console_uart)) {
         LOG_ERR("Console UART not ready");
         return 0;
@@ -360,9 +361,10 @@ int main(void)
     
     battery_init(&app);
     
-    gui_init(&app, menu_items);
+    gui_init(&app, menu_items, menu_length);
 
     //a futuro esto seria un sleep forever y gestionaria por interrupcion.
+    //TODO: quizas hacer cola de eventos y actualizar ahi la pantalla (para evitar condiciones de carrera o algo)
     while (1) {
         uint8_t raw;
         char key;

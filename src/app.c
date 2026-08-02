@@ -29,7 +29,14 @@ static const char *screen_name(enum app_screen screen)
     }
 }
 
-static const size_t menu_length = sizeof(menu_items) / sizeof(menu_items[0]);
+const char *const menu_items[] = {
+    "Home",
+    "Sync Time",
+    "Settings",
+    "About",
+};
+
+const size_t menu_length = sizeof(menu_items) / sizeof(menu_items[0]);
 
 void app_init(struct app_state *state)
 {

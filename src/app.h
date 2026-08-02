@@ -8,12 +8,8 @@
 
 struct bt_cts_current_time;
 
-static const char *const menu_items[] = {
-    "Home",
-    "Sync Now",
-    "Battery",
-    "About",
-};
+extern const char *const menu_items[];
+extern const size_t menu_length; 
 
 enum app_screen {
     APP_SCREEN_HOME = 0,
