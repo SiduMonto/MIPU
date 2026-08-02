@@ -29,12 +29,6 @@ static const char *screen_name(enum app_screen screen)
     }
 }
 
-static const char *const menu_items[] = {
-    "Home",
-    "Sync now",
-    "Battery",
-    "About",
-};
 static const size_t menu_length = sizeof(menu_items) / sizeof(menu_items[0]);
 
 void app_init(struct app_state *state)
@@ -121,6 +115,7 @@ bool app_get_current_tm(const struct app_state *state, struct tm *out)
 enum app_action app_handle_button(struct app_state *state, enum app_button_event event)
 {
     enum app_action action = APP_ACTION_NONE;
+    enum app_screen old_screen = state->screen;
 
     switch (state->screen) {
     case APP_SCREEN_HOME:
@@ -184,6 +179,9 @@ enum app_action app_handle_button(struct app_state *state, enum app_button_event
         LOG_INF("Accion tomada: %d", action);
     } else {
         LOG_INF("No ha habido accion");
+    }
+    if(old_screen != state->screen && action == APP_ACTION_NONE){
+        action = APP_ACTION_SCREEN_CHANGE;
     }
     return action;
 }

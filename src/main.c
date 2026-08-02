@@ -6,8 +6,11 @@
 #include <zephyr/bluetooth/gatt.h>
 #include <bluetooth/gatt_dm.h>
 #include <bluetooth/services/cts_client.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
+
+#include <zephyr/logging/log.h>
+
+#include <lvgl.h>
 
 #include <zephyr/usb/usbd.h>
 #include <zephyr/drivers/uart.h>
@@ -15,6 +18,7 @@
 #include "app.h"
 #include "battery.h"
 #include "inversion.h"
+#include "gui.h"
 
 #define DEVICE_NAME "MIPU Watch"
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME) - 1)
@@ -330,6 +334,7 @@ static int bluetooth_start(void)
 int main(void)
 {
     int err;
+    init_hardware_vcom();
     
     app_init(&app);
 
@@ -347,16 +352,15 @@ int main(void)
 
     LOG_INF("USB init succesful.\n");
     
-    //Aqui inicializo la pantalla
-    init_hardware_vcom();
-
+    
     err = bluetooth_start();
     if (err) {
         LOG_WRN("Bluetooth init failed: %d", err);
     }
-
+    
     battery_init(&app);
     
+    gui_init(&app, menu_items);
 
     //a futuro esto seria un sleep forever y gestionaria por interrupcion.
     while (1) {
@@ -383,6 +387,12 @@ int main(void)
             }
             //MAS ACCIONES...
         }
+        //Esto lo hare en interrupciones 
+        //PERO NO EN INTERRUPCIONES, informare que se puede actualizar (con semaforo o algo) pero en int no pondre el update en si
+        //puedo usar k_sem_take(&ui_update_sem, K_MINUTES(1)); y k_sem_give(&ui_update_sem);
+        //Aunque quizas me gusta mas un timer periodico de 1 min
+        gui_update();
+        lv_task_handler();
         k_sleep(K_MSEC(20));
     }
     return 0;

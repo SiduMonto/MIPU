@@ -8,6 +8,13 @@
 
 struct bt_cts_current_time;
 
+static const char *const menu_items[] = {
+    "Home",
+    "Sync Now",
+    "Battery",
+    "About",
+};
+
 enum app_screen {
     APP_SCREEN_HOME = 0,
     APP_SCREEN_MENU,
@@ -27,6 +34,7 @@ enum app_button_event {
 enum app_action {
     APP_ACTION_NONE = 0,
     APP_ACTION_SYNC_NOW,
+    APP_ACTION_SCREEN_CHANGE,
 };
 
 struct app_clock_state {
