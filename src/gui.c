@@ -10,6 +10,11 @@ LOG_MODULE_REGISTER(gui, LOG_LEVEL_INF);
 
 #define MAX_MENU_ITEMS 10 // Límite seguro para inicializar arrays
 
+static int last_drawn_batt = -1;
+static bool last_drawn_bt = false;
+static int last_drawn_minute = -1;
+static int last_drawn_menu_index = -1;
+
 /* Puntero al estado global de la app (guardado en el init) */
 static const struct app_state *app_state;
 
@@ -187,7 +192,9 @@ void gui_init(const struct app_state *state, const char *const menu_items[], con
 		current_active_screen = app_state->screen;
 		switch (app_state->screen) {
 			case APP_SCREEN_HOME:     lv_scr_load_anim(screen_home, LV_SCR_LOAD_ANIM_NONE, 0, 0, false); break;
-			case APP_SCREEN_MENU:     lv_scr_load_anim(screen_menu, LV_SCR_LOAD_ANIM_NONE, 0, 0, false); break;
+			case APP_SCREEN_MENU:     lv_scr_load_anim(screen_menu, LV_SCR_LOAD_ANIM_NONE, 0, 0, false); 
+									  last_drawn_menu_index = -1; //para que se redibuje al entrar y haga el scroll. en los otros NO hace falta
+									  break;
 			case APP_SCREEN_SETTINGS: lv_scr_load_anim(screen_settings, LV_SCR_LOAD_ANIM_NONE, 0, 0, false); break;
 			case APP_SCREEN_ABOUT:    lv_scr_load_anim(screen_about, LV_SCR_LOAD_ANIM_NONE, 0, 0, false); break;
 		}
@@ -199,34 +206,51 @@ void gui_init(const struct app_state *state, const char *const menu_items[], con
 
 	//home
 	if (current_active_screen == APP_SCREEN_HOME) {
-		// Actualizamos estado de Batería y BT solo cuando estamos en Home
-		lv_label_set_text_fmt(status_batt_label, "%d%%", app_state->battery_percent);
-		lv_label_set_text(status_bt_label, app_state->bt_ready ? "BT" : "--");
+		// Actualizamos estado de Batería y BT solo cuando estamos en Home y solo cuando cambia
+        if (app_state->battery_percent != last_drawn_batt) {
+            lv_label_set_text_fmt(status_batt_label, "%d%%", app_state->battery_percent);
+            last_drawn_batt = app_state->battery_percent;
+        }
+
+        if (app_state->bt_ready != last_drawn_bt) {
+            lv_label_set_text(status_bt_label, app_state->bt_ready ? "BT" : "--");
+            last_drawn_bt = app_state->bt_ready;
+        }
 
 		// Actualizamos Hora y Fecha
 		struct tm now_tm;
 		if (app_get_current_tm(app_state, &now_tm)) {
-			lv_label_set_text_fmt(home_time_label, "%02d:%02d", now_tm.tm_hour, now_tm.tm_min);
-			lv_label_set_text_fmt(home_date_label, "%02d/%02d/%04d", 
-								now_tm.tm_mday, now_tm.tm_mon + 1, now_tm.tm_year + 1900);
+			if (now_tm.tm_min != last_drawn_minute) {
+                lv_label_set_text_fmt(home_time_label, "%02d:%02d", now_tm.tm_hour, now_tm.tm_min);
+                lv_label_set_text_fmt(home_date_label, "%02d/%02d/%04d", 
+                                    now_tm.tm_mday, now_tm.tm_mon + 1, now_tm.tm_year + 1900);
+                last_drawn_minute = now_tm.tm_min;
+            }
 		} else {
-			lv_label_set_text(home_time_label, "--:--");
-			lv_label_set_text(home_date_label, "AVOCADO DAY");
+			if(last_drawn_minute != -1) {
+				lv_label_set_text(home_time_label, "--:--");
+				lv_label_set_text(home_date_label, "AVOCADO DAY");
+				last_drawn_minute = -1;
+			}
 		}
 	} 
 	//menu
 	else if (current_active_screen == APP_SCREEN_MENU) {
 		// Actualizamos los estilos para mostrar cuál está seleccionado
-		for (size_t i = 0; i < num_menu_items; i++) {
-			if (i == app_state->menu_index) {
-				lv_obj_add_style(menu_items_containers[i], &style_inverted, LV_PART_MAIN);
-				lv_obj_remove_style(menu_items_containers[i], &style_normal, LV_PART_MAIN);
+		if (app_state->menu_index != last_drawn_menu_index) {
+			
+			for (size_t i = 0; i < num_menu_items; i++) {
+				if (i == app_state->menu_index) {
+					lv_obj_add_style(menu_items_containers[i], &style_inverted, LV_PART_MAIN);
+					lv_obj_remove_style(menu_items_containers[i], &style_normal, LV_PART_MAIN);
 
-				lv_obj_scroll_to_view(menu_items_containers[i], LV_ANIM_OFF);
-			} else {
-				lv_obj_add_style(menu_items_containers[i], &style_normal, LV_PART_MAIN);
-				lv_obj_remove_style(menu_items_containers[i], &style_inverted, LV_PART_MAIN);
+					lv_obj_scroll_to_view(menu_items_containers[i], LV_ANIM_OFF);
+				} else {
+					lv_obj_add_style(menu_items_containers[i], &style_normal, LV_PART_MAIN);
+					lv_obj_remove_style(menu_items_containers[i], &style_inverted, LV_PART_MAIN);
+				}
 			}
+			last_drawn_menu_index = app_state->menu_index;
 		}
 	}
 }

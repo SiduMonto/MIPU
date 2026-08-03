@@ -20,8 +20,17 @@
 #include "inversion.h"
 #include "gui.h"
 
+
 #define DEVICE_NAME "MIPU Watch"
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME) - 1)
+
+// Perfil rápido
+// Intervalo: 30ms a 45ms. Latencia: 0. Timeout: 4 segundos.
+#define BT_LE_CONN_PARAM_FAST BT_LE_CONN_PARAM(0x0018, 0x0024, 0, 400)
+
+// Perfil lento
+// Intervalo: 400ms a 500ms. Latencia: 2 (efectivo 1.5s). Timeout: 5.5 segundos.
+#define BT_LE_CONN_PARAM_SLOW BT_LE_CONN_PARAM(0x0140, 0x0190, 2, 550)
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
@@ -38,6 +47,9 @@ static struct bt_cts_client cts_client;
 static struct app_state app;
 static const struct device *const console_uart = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 
+static struct k_work_delayable start_advertising_work;
+
+
 //BLUETOOTH TIME SYNC
 //TODO: poner que todos los dias se sincronice. si falla no pasa nada porque hay que hacer que al conectarse pida la hora       
 // Esta función se ejecuta automáticamente cuando el móvil responde con la hora
@@ -48,6 +60,43 @@ static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
     BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
 };
+
+void app_set_connection_speed(bool fast_mode){
+    if (!default_conn) {
+        return; 
+    }
+
+    int err;
+    if (fast_mode) {
+        err = bt_conn_le_param_update(default_conn, BT_LE_CONN_PARAM_FAST);
+    } else {
+        err = bt_conn_le_param_update(default_conn, BT_LE_CONN_PARAM_SLOW);
+    }
+
+    if (err) {
+        LOG_WRN("Error requesting bluetooth parameter update: %d", err);
+    } else {
+        LOG_INF("Bluetooth parameter update request sent: %s", fast_mode ? "FAST" : "SLOW");
+    }
+}
+
+//tries to restart advertising every 5 seconds until it succeeds. It does not block the main thread
+void bt_le_adv_start_until_success(struct k_work *work){
+    int err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), NULL, 0);
+
+    if (err == -EALREADY) {
+        LOG_INF("Advertising is already running. Stopping retries.");
+        return;
+    }
+
+
+    if (err) {
+        LOG_ERR("Error restarting advertising. Trying again in 5s (err %d)", err);
+        k_work_schedule(&start_advertising_work, K_SECONDS(5));
+    } else {
+        LOG_INF("Advertising restarted. Waiting for reconnection...");
+    }
+}
 
 
 // // Variables globales para el proceso de búsqueda
@@ -176,6 +225,13 @@ static void connected(struct bt_conn *conn, uint8_t err)
         return;
     }
 
+    //rechazo nuevas conexiones si ya hay una activa
+    if (default_conn != NULL) {
+        LOG_WRN("A device is already connected. New connection rejected.");
+        bt_conn_disconnect(conn, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+        return;
+    }
+
     LOG_INF("PHONE CONNECTED!");
     
     // Guardamos la conexión para usarla luego y sumamos 1 a su contador de uso
@@ -194,21 +250,23 @@ static void disconnected(struct bt_conn *conn, uint8_t reason)
 {
     LOG_INF("Phone disconnected (reason: %u)", reason);
 
-    if (default_conn) {
+    if (default_conn == conn) {
         // Liberamos la memoria de la conexión
         bt_conn_unref(default_conn);
         default_conn = NULL;
+        app_set_bt_ready(&app, false);
+    } else {
+        LOG_INF("A rejected or unknown connection just disconnected. Ignoring.");
     }
+}
 
-    app_set_bt_ready(&app, false);
+//en esta funcion para asegurar que se ha destruido la conexion del todo
+static void recycled(void){
+    LOG_INF("Connection object memory freed. Safe to restart advertising.");
 
     //volvemos a anunciarmos
-    int err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), NULL, 0);
-    if (err) {
-        LOG_ERR("Error restarting advertising (err %d)", err);
-    } else {
-        LOG_INF("Advertising restarted. Waiting for reconnection...");
-    }
+    k_work_schedule(&start_advertising_work, K_NO_WAIT);
+
 }
 
 // Esta macro de Zephyr registra los callbacks automáticamente en el sistema
@@ -216,6 +274,7 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
     .connected = connected,
     .disconnected = disconnected,
     .security_changed = security_changed,
+    .recycled = recycled,
 };
 
 // SIMULACION DE BOTONES CON TECLADO
@@ -258,13 +317,12 @@ static void request_time_sync(void)
 
 static void cts_time_cb(struct bt_cts_client *cts,
                         struct bt_cts_current_time *current_time,
-                        int err)
-{
+                        int err){
     (void)cts;
 
     app_set_time_from_cts(&app, current_time, err);
     if (err == 0) {
-        LOG_INF("Hora sincronizada con CTS");
+        LOG_INF("Time sync complete with CTS");
     } else {
         LOG_WRN("CTS callback error: %d", err);
     }
@@ -321,11 +379,8 @@ static int bluetooth_start(void)
     bt_cts_client_init(&cts_client);
 
     //advertising
-    err = bt_le_adv_start(BT_LE_ADV_CONN_FAST_2, ad, ARRAY_SIZE(ad), NULL, 0);
-    if (err) {
-        LOG_ERR("Error starting advertising (err %d)", err);
-        return err;
-    }
+    k_work_init_delayable(&start_advertising_work, bt_le_adv_start_until_success);
+    k_work_schedule(&start_advertising_work, K_NO_WAIT);
 
     LOG_INF("Advertising started as '%s'.", DEVICE_NAME);
     return 0;
@@ -390,9 +445,9 @@ int main(void)
             //MAS ACCIONES...
         }
         //Esto lo hare en interrupciones 
-        //PERO NO EN INTERRUPCIONES, informare que se puede actualizar (con semaforo o algo) pero en int no pondre el update en si
+        //PERO NO EN INTERRUPCIONES, informare que se puede actualizar (con semaforo o algo) pero en la ISR no pondre el update en si
         //puedo usar k_sem_take(&ui_update_sem, K_MINUTES(1)); y k_sem_give(&ui_update_sem);
-        //Aunque quizas me gusta mas un timer periodico de 1 min
+        //Aunque quizas me gusta mas un timer periodico de 1 min (quizas sirve timer Y lo de k_minutes...)
         gui_update();
         lv_task_handler();
         k_sleep(K_MSEC(20));
