@@ -33,8 +33,16 @@
 	io-channels = <&adc 7>;
 	output-ohms = <510000>; //r2 (que es 510k)
 	full-ohms = <1510000>; //r1 (que es 1M) + r2
-	power-gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
-        power-on-sample-delay-us = <16>;
+	// power-gpios = <&gpio0 14 GPIO_ACTIVE_LOW>;
+    //     power-on-sample-delay-us = <16>; //TODO: REVISAR SI ES DEMASIADO POCO
+    };
+};
+
+&gpio0 {
+    vbat_enable_hog {
+        gpio-hog;
+        gpios = <14 GPIO_ACTIVE_HIGH>;
+        output-low;
     };
 };
 

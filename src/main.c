@@ -29,8 +29,8 @@
 #define BT_LE_CONN_PARAM_FAST BT_LE_CONN_PARAM(0x0018, 0x0024, 0, 400)
 
 // Perfil lento
-// Intervalo: 400ms a 500ms. Latencia: 2 (efectivo 1.5s). Timeout: 5.5 segundos.
-#define BT_LE_CONN_PARAM_SLOW BT_LE_CONN_PARAM(0x0140, 0x0190, 2, 550)
+// Intervalo: 480ms a 500ms. Latencia: 4 (efectivo 2.5s). Timeout: 8 segundos.
+#define BT_LE_CONN_PARAM_SLOW BT_LE_CONN_PARAM(0x0180, 0x0190, 4, 800)
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 

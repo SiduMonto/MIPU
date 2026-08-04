@@ -41,12 +41,12 @@ struct app_clock_state {
 
 struct app_state {
     struct k_spinlock lock;
-    enum app_screen screen;
-    int menu_index;
-    bool bt_ready;
-    bool sync_in_progress;
-    bool last_sync_ok;
-    int battery_percent;
+    volatile enum app_screen screen;
+    volatile int menu_index;
+    volatile bool bt_ready;
+    volatile bool sync_in_progress;
+    volatile bool last_sync_ok;
+    volatile int battery_percent;
     struct app_clock_state clock;
 };
 
