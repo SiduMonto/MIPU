@@ -389,14 +389,10 @@ static int bluetooth_start(void)
 int main(void)
 {
     int err;
-    init_hardware_vcom();
-    
-    app_init(&app);
-
     //inicializar y habilitar el stack USB 
     //TODO: quizas poner alante y hacer algo para que se espere todo a que se haya inicializado
     if (!device_is_ready(console_uart)) {
-        LOG_ERR("Console UART not ready");
+        //LOG_ERR("Console UART not ready"); esto no lo loggeara si no esta listo igualmente
         return 0;
     }
 
@@ -406,7 +402,22 @@ int main(void)
         return err;
     }
 
-    LOG_INF("USB init succesful.\n");
+    //ESTE BUCLE ROMPE EL RELOJ SI NO ESTA CONECTADO A PC
+    // Wait for DTR (Data Terminal Ready) from the host PC
+    // This means a serial monitor program has connected to the port. 
+    uint32_t dtr = 0;
+    while (!dtr) {
+        uart_line_ctrl_get(console_uart, UART_LINE_CTRL_DTR, &dtr);
+        k_sleep(K_MSEC(100));
+    }
+
+    LOG_INF("USB init succesful. PC connected\n");
+
+
+    init_hardware_vcom();
+    
+    app_init(&app);
+
     
     
     err = bluetooth_start();
