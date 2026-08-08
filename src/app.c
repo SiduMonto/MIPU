@@ -1,7 +1,6 @@
 #include "app.h"
 
 //#include <date_time.h>
-#include <bluetooth/services/cts_client.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -61,6 +60,9 @@ void app_request_sync(struct app_state *state)
     state->sync_in_progress = true;
 }
 
+
+#ifdef CONFIG_BT
+#include <bluetooth/services/cts_client.h>
 void app_set_time_from_cts(struct app_state *state,
                            const struct bt_cts_current_time *current_time,
                            int err)
@@ -102,6 +104,7 @@ void app_set_time_from_cts(struct app_state *state,
 
     //(void)date_time_set(&tm);
 }
+#endif
 
 bool app_get_current_tm(const struct app_state *state, struct tm *out)
 {

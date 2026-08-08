@@ -1,10 +1,14 @@
 #include "battery.h"
 #include <zephyr/kernel.h>
-#include <zephyr/drivers/adc.h>
 //#include <zephyr/drivers/gpio.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(battery, LOG_LEVEL_INF);
+
+static struct app_state *m_app_state;
+
+#ifndef CONFIG_BOARD_NATIVE_SIM
+#include <zephyr/drivers/adc.h>
 
 /* Nodos del Device Tree */
 #define VBATT_NODE DT_NODELABEL(vbatt)
@@ -18,8 +22,6 @@ static const struct adc_dt_spec vbatt_adc = ADC_DT_SPEC_GET(VBATT_NODE);
 
 //usa una cola de trabajo, por lo que no bloquea y no satura nada.
 static struct k_work_delayable battery_work;
-
-static struct app_state *m_app_state;
 
 //mapeo de voltaje a bateria, habra que ir refinando
 static const uint16_t lipo_lut[][2] = {
@@ -143,3 +145,12 @@ void battery_init(struct app_state *state)
     
     LOG_INF("Battery module initialized.");
 }
+
+#else
+void battery_init(struct app_state *state)
+{
+    m_app_state = state;
+    app_set_battery_percent(m_app_state, 85);
+    LOG_INF("Simulated battery initialized.");
+}
+#endif

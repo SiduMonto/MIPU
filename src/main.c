@@ -1,5 +1,24 @@
 #include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
+#include <lvgl.h>
+#include <zephyr/drivers/uart.h>
 
+#include "app.h"
+#include "battery.h"
+#include "inversion.h"
+#include "gui.h"
+
+LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
+
+static struct app_state app;
+static const struct device *const console_uart = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
+
+#ifndef CONFIG_BOARD_NATIVE_SIM
+#include <zephyr/usb/usbd.h>
+// ... Keep your USBD_DEVICE_DEFINE and USB descriptions here ...
+#endif
+
+#ifdef CONFIG_BT
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/conn.h>
 #include <zephyr/bluetooth/uuid.h>
@@ -7,18 +26,6 @@
 #include <bluetooth/gatt_dm.h>
 #include <bluetooth/services/cts_client.h>
 #include <zephyr/settings/settings.h>
-
-#include <zephyr/logging/log.h>
-
-#include <lvgl.h>
-
-#include <zephyr/usb/usbd.h>
-#include <zephyr/drivers/uart.h>
-
-#include "app.h"
-#include "battery.h"
-#include "inversion.h"
-#include "gui.h"
 
 
 #define DEVICE_NAME "MIPU Watch"
@@ -32,8 +39,6 @@
 // Intervalo: 480ms a 500ms. Latencia: 4 (efectivo 2.5s). Timeout: 8 segundos.
 #define BT_LE_CONN_PARAM_SLOW BT_LE_CONN_PARAM(0x0180, 0x0190, 4, 800)
 
-LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
-
 //pa la uart creo
 USBD_DEVICE_DEFINE(my_usbd, DEVICE_DT_GET(DT_NODELABEL(zephyr_udc0)), 0x1234, 0x5678);
 USBD_CONFIGURATION_DEFINE(my_config, USB_SCD_SELF_POWERED, 100, NULL);
@@ -44,10 +49,10 @@ USBD_DESC_PRODUCT_DEFINE(product_desc, "XIAO BLE Console");
 static struct bt_conn *default_conn = NULL;
 
 static struct bt_cts_client cts_client;
-static struct app_state app;
-static const struct device *const console_uart = DEVICE_DT_GET(DT_CHOSEN(zephyr_console));
 
 static struct k_work_delayable start_advertising_work;
+
+
 
 
 //BLUETOOTH TIME SYNC
@@ -277,32 +282,6 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
     .recycled = recycled,
 };
 
-// SIMULACION DE BOTONES CON TECLADO
-static enum app_button_event key_to_event(char key, bool *valid)
-{
-    *valid = true;
-
-    switch (key) {
-    case '1':
-        return APP_BTN_PREV_SHORT;
-    case '2':
-        return APP_BTN_OK_SHORT;
-    case '3':
-        return APP_BTN_NEXT_SHORT;
-    case 'Q':
-    case 'q':
-        return APP_BTN_PREV_LONG;
-    case 'W':
-    case 'w':
-        return APP_BTN_OK_LONG;
-    case 'E':
-    case 'e':
-        return APP_BTN_NEXT_LONG;
-    default:
-        *valid = false;
-        return APP_BTN_OK_SHORT;
-    }
-}
 
 static void request_time_sync(void)
 {
@@ -327,36 +306,6 @@ static void cts_time_cb(struct bt_cts_client *cts,
         LOG_WRN("CTS callback error: %d", err);
     }
 }
-
-static int usb_console_start(void)
-{
-    int err;
-
-    err = usbd_add_descriptor(&my_usbd, &lang_desc);
-    err |= usbd_add_descriptor(&my_usbd, &mfg_desc);
-    err |= usbd_add_descriptor(&my_usbd, &product_desc);
-
-    err |= usbd_add_configuration(&my_usbd, USBD_SPEED_FS, &my_config);
-    err |= usbd_register_class(&my_usbd, "cdc_acm_0", USBD_SPEED_FS, 1);    
-
-    if (err) {
-        return err;
-    }
-    
-
-    err = usbd_init(&my_usbd);
-    if (err) {
-        return err;
-    }
-
-    err = usbd_enable(&my_usbd);
-    if (err) {
-        return err;
-    }
-
-    return 0;
-}
-
 
 static int bluetooth_start(void)
 {
@@ -386,6 +335,66 @@ static int bluetooth_start(void)
     return 0;
 }
 
+#endif
+
+#ifndef CONFIG_BOARD_NATIVE_SIM
+static int usb_console_start(void)
+{
+    int err;
+
+    err = usbd_add_descriptor(&my_usbd, &lang_desc);
+    err |= usbd_add_descriptor(&my_usbd, &mfg_desc);
+    err |= usbd_add_descriptor(&my_usbd, &product_desc);
+
+    err |= usbd_add_configuration(&my_usbd, USBD_SPEED_FS, &my_config);
+    err |= usbd_register_class(&my_usbd, "cdc_acm_0", USBD_SPEED_FS, 1);    
+
+    if (err) {
+        return err;
+    }
+    
+
+    err = usbd_init(&my_usbd);
+    if (err) {
+        return err;
+    }
+
+    err = usbd_enable(&my_usbd);
+    if (err) {
+        return err;
+    }
+
+    return 0;
+}
+#endif
+
+// SIMULACION DE BOTONES CON TECLADO
+static enum app_button_event key_to_event(char key, bool *valid)
+{
+    *valid = true;
+
+    switch (key) {
+    case '1':
+        return APP_BTN_PREV_SHORT;
+    case '2':
+        return APP_BTN_OK_SHORT;
+    case '3':
+        return APP_BTN_NEXT_SHORT;
+    case 'Q':
+    case 'q':
+        return APP_BTN_PREV_LONG;
+    case 'W':
+    case 'w':
+        return APP_BTN_OK_LONG;
+    case 'E':
+    case 'e':
+        return APP_BTN_NEXT_LONG;
+    default:
+        *valid = false;
+        return APP_BTN_OK_SHORT;
+    }
+}
+
 int main(void)
 {
     int err;
@@ -396,6 +405,7 @@ int main(void)
         return 0;
     }
 
+    #ifndef CONFIG_BOARD_NATIVE_SIM
     err = usb_console_start();
     if (err) {
         LOG_ERR("USB init failed: %d", err);
@@ -412,18 +422,20 @@ int main(void)
     }
 
     LOG_INF("USB init succesful. PC connected\n");
-
+    #endif
 
     init_hardware_vcom();
     
     app_init(&app);
 
-    
-    
+    #ifdef CONFIG_BT
     err = bluetooth_start();
     if (err) {
         LOG_WRN("Bluetooth init failed: %d", err);
     }
+    #else
+    LOG_INF("Simulator mode: Bluetooth disabled.");
+    #endif
     
     battery_init(&app);
     
@@ -451,7 +463,11 @@ int main(void)
             enum app_action action = app_handle_button(&app, event);
 
             if (action == APP_ACTION_SYNC_NOW) {
+                #ifdef CONFIG_BT
                 request_time_sync();
+                #else
+                LOG_INF("Simulator: Time sync requested, but BT is disabled.");
+                #endif
             }
             //MAS ACCIONES...
         }

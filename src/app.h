@@ -6,7 +6,9 @@
 #include <stdint.h>
 #include <time.h>
 
+#ifdef CONFIG_BT
 struct bt_cts_current_time;
+#endif
 
 extern const char *const menu_items[];
 extern const size_t menu_length; 
@@ -55,9 +57,13 @@ enum app_action app_handle_button(struct app_state *state, enum app_button_event
 void app_set_bt_ready(struct app_state *state, bool ready);
 void app_set_battery_percent(struct app_state *state, int percent);
 void app_request_sync(struct app_state *state);
+
+#ifdef CONFIG_BT
 void app_set_time_from_cts(struct app_state *state,
                            const struct bt_cts_current_time *current_time,
                            int err);
+#endif
+
 bool app_get_current_tm(const struct app_state *state, struct tm *out);
 void app_render(const struct app_state *state);
 

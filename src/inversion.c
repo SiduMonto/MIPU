@@ -10,6 +10,9 @@
 
 #include "inversion.h"
 
+#ifndef CONFIG_BOARD_NATIVE_SIM
+
+
 LOG_MODULE_REGISTER(inversion, LOG_LEVEL_INF);
 
 static nrfx_gpiote_t gpiote_instance = NRFX_GPIOTE_INSTANCE(0);
@@ -17,8 +20,7 @@ static nrfx_rtc_t rtc2 = NRFX_RTC_INSTANCE(2);
 
 #define EXTCOMIN_PIN NRF_GPIO_PIN_MAP(1, 12) // P1.12 en la Xiao BLE
 
-void init_hardware_vcom(void)
-{
+void init_hardware_vcom(void){
     int err;
 
     //GPIOTE
@@ -102,3 +104,11 @@ void init_hardware_vcom(void)
     
     LOG_INF("Hardware VCOM inversion initialized.\n");
 }
+
+#else
+
+void init_hardware_vcom(void) {
+    //Dummy que no haga nada
+}
+
+#endif
